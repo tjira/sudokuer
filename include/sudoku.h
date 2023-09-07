@@ -1,17 +1,22 @@
 #pragma once
 
+#include <algorithm>
 #include <iostream>
+#include <numeric>
 #include <random>
 #include <tuple>
+
+typedef std::array<std::array<int, 9>, 9> Board;
 
 class Sudoku {
 public:
     // constructors
-    Sudoku(const std::array<std::array<int, 9>, 9>& board) : board(board) {}
+    Sudoku(const Board& board = Board{});
 
     // generators and solvers
-    bool backtrack(unsigned seed, size_t i, size_t j);
     bool valid(size_t i, size_t j, int n) const;
+    bool backtrack(unsigned seed, int nsol);
+    void eliminate(unsigned seed);
 
     // operators
     friend std::ostream& operator<<(std::ostream& os, const Sudoku& sudoku);
@@ -19,5 +24,6 @@ public:
     int& operator()(size_t i, size_t j) {return board.at(i).at(j);}
 
 private:
-    std::array<std::array<int, 9>, 9> board;
+    Board board; std::vector<Board> solutions;
+    std::vector<std::pair<int, int>> empty;
 };
