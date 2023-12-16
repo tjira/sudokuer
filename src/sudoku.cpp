@@ -12,13 +12,28 @@ std::ostream& operator<<(std::ostream& os, const Sudoku& sudoku) {
     std::cout << "╔═══╤═══╤═══╦═══╤═══╤═══╦═══╤═══╤═══╗\n";
     for (size_t i = 0; i < sudoku.board.size(); i++) {
         for (size_t j = 0; j < sudoku.board.at(i).size(); j++) {
-            std::cout << (j % 3 ? "│ " : "║ ") << sudoku(i, j) << " ";
+            std::cout << (j % 3 ? "│ " : "║ ") << (sudoku(i, j) ? std::to_string(sudoku(i, j)) : " ") << " ";
         }
         if (i + 1 == sudoku.board.size()) std::cout << "║\n╚═══╧═══╧═══╩═══╧═══╧═══╩═══╧═══╧═══╝";
         else if (i % 3 == 2) std::cout << "║\n╠═══╪═══╪═══╬═══╪═══╪═══╬═══╪═══╪═══╣\n";
         else std::cout << "║\n╟───┼───┼───╫───┼───┼───╫───┼───┼───╢\n";
     }
     return os;
+}
+
+std::string Sudoku::string() const {
+    // define the string
+    std::string string;
+
+    // fill the string
+    for (size_t i = 0; i < 9; i++) {
+        for (size_t j = 0; j < 9; j++) {
+            string += std::to_string(operator()(i, j));
+        }
+    }
+
+    // return the string
+    return string;
 }
 
 bool Sudoku::valid(size_t i, size_t j, int n) const {
@@ -31,13 +46,8 @@ bool Sudoku::valid(size_t i, size_t j, int n) const {
 
 bool Sudoku::backtrack(unsigned seed, int nsol) {
     // if the board is filled
-    if (!empty.size()) {
-        // append the board to solutions
-        solutions.push_back(board); 
-        std::cout << board << std::endl;
-
-        // exit if nsol solutions found
-        return solutions.size() >= (size_t)nsol;
+    if (!empty.size()) {solutions.push_back(board); 
+        return nsol ? solutions.size() >= (size_t)nsol : true;
     }
 
     // define the cell indices
@@ -45,7 +55,7 @@ bool Sudoku::backtrack(unsigned seed, int nsol) {
 
     // create the array of available values
     std::array<int, 9> numbers; std::iota(numbers.begin(), numbers.end(), 1);
-    // std::shuffle(numbers.begin(), numbers.end(), std::mt19937(seed));
+    std::shuffle(numbers.begin(), numbers.end(), std::mt19937(seed));
 
     // fill loop over the available numbers
     for (int n : numbers) {
@@ -66,28 +76,42 @@ bool Sudoku::backtrack(unsigned seed, int nsol) {
     return false;
 }
 
-void Sudoku::eliminate(unsigned seed) {
+void Sudoku::eliminate(unsigned seed, int nsol) {
     // create the array of all cell coordinates
     std::vector<std::pair<int, int>> cells;
 
-
+    // generate all pairs of indices
     for (size_t i = 0; i < 9; i++) {
         for (size_t j = 0; j < 9; j++) {
-            if (!operator()(i, j)) empty.push_back({i, j});
+            cells.push_back({i, j});
         }
     }
 
-    for (size_t i = 0; i < 9; i++) {
-        for (size_t j = 0; j < 2; j++) {
-            operator()(i, j) = 0;
-        }
-    }
-    empty.clear();
-    for (size_t i = 0; i < 9; i++) {
-        for (size_t j = 0; j < 9; j++) {
-            if (!operator()(i, j)) empty.push_back({i, j});
-        }
-    }
-    backtrack(seed, 5);
+    // shuffle the indices
+    std::shuffle(cells.begin(), cells.end(), std::mt19937(seed));
 
+    // perform the elimination
+    for (size_t i = 0; i < 45; i++) {
+        // create test sudoku
+        Sudoku test(board); test.empty = empty;
+
+        // remove one number from the test board
+        if (test(cells.at(i).first, cells.at(i).second)) {
+            test.empty.push_back({cells.at(i).first, cells.at(i).second});
+            test.board.at(cells.at(i).first).at(cells.at(i).second) = 0;
+        }
+
+        // solve the test board
+        test.backtrack(seed, nsol + 1);
+
+        // accept if the solutions match
+        if (test.solutions.size() <= nsol) {
+            // add empty cell and make it empty
+            empty.push_back({cells.at(i).first, cells.at(i).second});
+            operator()(cells.at(i).first, cells.at(i).second) = 0;
+
+            // assign the solutions
+            solutions = test.solutions;
+        }
+    }
 }

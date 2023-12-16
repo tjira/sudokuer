@@ -1,0 +1,124 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '*'
+
+permissions:
+  contents: write
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build_linux_x86-64:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Configure Sudokuer
+        run: cmake -B build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+
+      - name: Build Sudokuer
+        run: cmake --build build --parallel 2
+
+      - name: Rename Executable
+        run: mv bin/sudokuer bin/sudokuer_linux_x86-64
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          path: bin/sudokuer_linux_x86-64
+
+  build_linux_x86-64_openmp:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Configure Sudokuer
+        run: cmake -B build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DGOMP=ON
+
+      - name: Build Sudokuer
+        run: cmake --build build --parallel 2
+
+      - name: Rename Executable
+        run: mv bin/sudokuer bin/sudokuer_linux_x86-64_openmp
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          path: bin/sudokuer_linux_x86-64_openmp
+
+  build_windows_x86-64:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Packages
+        run: pip install jinja2
+
+      - name: Configure Sudokuer
+        run: cmake -B build -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+
+      - name: Build Sudokuer
+        run: cmake --build build --parallel 2
+
+      - name: Rename Executable
+        run: mv bin/sudokuer.exe bin/sudokuer_windows_x86-64.exe
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          path: bin/sudokuer_windows_x86-64.exe
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [build_linux_x86-64, build_linux_x86-64_openmp, build_windows_x86-64]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Copy x86-64 Binaries to the Root Folder
+        run: |
+          cp artifact/sudokuer_linux_x86-64 sudokuer && cp artifact/sudokuer_windows_x86-64.exe sudokuer.exe
+
+      - name: Create x86-64 Packages
+        run: |
+          zip -r sudokuer_windows_x86-64.zip sudokuer.exe LICENSE.md
+          tar -czf sudokuer_linux_x86-64.tar.gz sudokuer LICENSE.md
+
+      - name: Copy x86-64_openmp Binaries to the Root Folder
+        run: |
+          cp artifact/sudokuer_linux_x86-64_openmp sudokuer
+
+      - name: Create x86-64_openmp Packages
+        run: |
+          tar -czf sudokuer_linux_x86-64_openmp.tar.gz sudokuer LICENSE.md
+
+      - name: Release linux_x86-64 Version of Sudokuer
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{secrets.GITHUB_TOKEN}}
+          file: sudokuer_linux_x86-64.tar.gz
+          tag: ${{github.ref}}
+
+      - name: Release linux_x86-64_openmp Version of Sudokuer
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{secrets.GITHUB_TOKEN}}
+          file: sudokuer_linux_x86-64_openmp.tar.gz
+          tag: ${{github.ref}}
+
+      - name: Release windows_x86-64 Version of Sudokuer
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{secrets.GITHUB_TOKEN}}
+          file: sudokuer_windows_x86-64.zip
+          tag: ${{github.ref}}
